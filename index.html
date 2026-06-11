@@ -1,160 +1,567 @@
-import os
-import logging
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-import google.generativeai as genai
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ottimo — Davomat Platformasi</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f6fa;
+    --white: #ffffff;
+    --dark: #1a1a2e;
+    --accent: #16213e;
+    --green: #0f9b58;
+    --green-bg: #e8f7f0;
+    --green-text: #0a7a45;
+    --red-bg: #fdecea;
+    --red-text: #c0392b;
+    --gray: #6b7280;
+    --border: #e5e7eb;
+    --text: #111827;
+    --subtext: #6b7280;
+    --radius: 10px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-# Logging
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+  /* TOPBAR */
+  .topbar { background: var(--dark); color: #fff; padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 52px; }
+  .topbar .brand { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  .topbar .filial { background: rgba(255,255,255,0.15); font-size: 12px; padding: 3px 10px; border-radius: 20px; }
+  .topbar .date-now { margin-left: auto; font-size: 12px; opacity: 0.7; }
 
-# API keys
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+  /* TABS */
+  .tabs { background: var(--white); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; }
+  .tab-btn { padding: 14px 20px; font-size: 14px; border: none; background: none; cursor: pointer; color: var(--subtext); border-bottom: 2px solid transparent; font-weight: 500; transition: all 0.2s; }
+  .tab-btn.active { color: var(--dark); border-bottom: 2px solid var(--dark); }
+  .tab-btn:hover { color: var(--dark); }
 
-# Gemini sozlash
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+  /* PAGES */
+  .page { display: none; padding: 24px; max-width: 1100px; margin: 0 auto; }
+  .page.active { display: block; }
 
-# HR Agent system prompt
-SYSTEM_PROMPT = """Sen Ottimo Cafe (Toshkentdagi zamonaviy italyan-style kafe) uchun HR agentisan.
-Faqat O'zbek tilida javob ber.
+  /* CARDS */
+  .card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); padding: 20px 24px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
 
-Ottimo Cafe haqida:
-- 25 xodim ishlaydi
-- Lavozimlari: barista, ofitsiant, oshpaz, kassir, menejer, tozalovchi
-- Ish vaqti: 08:00-22:00 (2 smena: 08:00-15:00 va 15:00-22:00)
-- Probatsiya muddati: 1 oy
-- Ish haqi: Barista 3-4 mln, Ofitsiant 2.5-3.5 mln, Menejer 6-8 mln UZS
-- O'zbekiston Mehnat kodeksiga mos ishlaydi
+  /* DATE BAR */
+  .bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .bar label { font-size: 13px; color: var(--subtext); font-weight: 500; }
+  input[type=date], input[type=time], input[type=text], input[type=number], select {
+    font-size: 13px; padding: 7px 10px; border: 1px solid var(--border);
+    border-radius: 8px; background: #fafafa; color: var(--text); outline: none;
+    transition: border 0.2s;
+  }
+  input[type=date]:focus, input[type=time]:focus, input[type=text]:focus, input[type=number]:focus, select:focus { border-color: var(--dark); }
 
-HR vazifalaring:
-1. Xodim qabul — CV ko'rib chiqish, intervyu savollari, lavozim talablari
-2. Onboarding — yangi xodimga nima kerakligini tushuntirish
-3. Smena jadvali — taqsimlash, dam olish kunlari
-4. Ish haqi — hisoblash, bonus, jarima
-5. Ichki qoidalar — tartib, kafe standartlari
-6. Mojarolar — hal qilish yo'llari
-7. Mehnat qonunlari — O'zbekiston qonunchiligi bo'yicha
+  /* DAVOMAT TABLE */
+  .att-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .att-table thead tr { background: #f9fafb; }
+  .att-table th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); }
+  .att-table td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  .att-table tr:last-child td { border-bottom: none; }
+  .att-table tr:hover td { background: #fafafa; }
+  .emp-name-cell { font-weight: 600; font-size: 14px; }
+  .emp-filial-cell { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+  input[type=time].t-input { width: 105px; font-size: 14px; font-weight: 500; padding: 6px 8px; }
+  .result-cell { min-width: 150px; }
+  .res-box { background: #f0fdf7; border: 1px solid #a7f3d0; border-radius: 8px; padding: 7px 12px; }
+  .res-hours { font-size: 15px; font-weight: 700; color: var(--dark); }
+  .res-salary { font-size: 12px; color: var(--green-text); font-weight: 600; margin-top: 2px; }
+  .res-empty { font-size: 12px; color: var(--subtext); font-style: italic; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-on { background: var(--green-bg); color: var(--green-text); }
+  .badge-off { background: #f3f4f6; color: var(--subtext); }
 
-Har doim do'stona, aniq va amaliy javob ber. Kerak bo'lsa ro'yxat yoki jadval ko'rinishida yoz."""
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.97); }
+  .btn-dark { background: var(--dark); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-red { background: #e74c3c; color: #fff; font-size: 12px; padding: 5px 12px; }
+  .btn-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 
-# Har bir foydalanuvchi uchun suhbat tarixi
-user_sessions = {}
+  /* SAVE RESULTS */
+  #save-results { margin-top: 16px; }
+  .result-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .result-table th { font-size: 11px; font-weight: 600; color: var(--subtext); text-transform: uppercase; padding: 8px 10px; background: #f9fafb; border-bottom: 1px solid var(--border); }
+  .result-table td { padding: 10px 10px; border-bottom: 1px solid #f3f4f6; }
+  .result-table tr:last-child td { border-bottom: none; font-weight: 700; background: #f0fdf7; }
+  .money-green { color: var(--green-text); font-weight: 700; }
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Bot ishga tushganda"""
-    user_name = update.effective_user.first_name or "Salom"
-    welcome_text = f"""👋 Salom, {user_name}!
+  /* SUMMARY CARDS */
+  .sum-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 12px; margin-bottom: 20px; }
+  .s-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); }
+  .s-card .lbl { font-size: 11px; color: var(--subtext); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+  .s-card .val { font-size: 22px; font-weight: 700; color: var(--dark); }
+  .s-card .val.small { font-size: 15px; }
 
-Men **Ottimo Cafe HR Agentiman** 🍽️
+  /* REPORT TABLE */
+  .rep-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rep-table th { font-size: 11px; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.3px; padding: 10px 12px; background: #f9fafb; border-bottom: 1px solid var(--border); text-align: left; }
+  .rep-table td { padding: 11px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  .rep-table tr:last-child td { border-bottom: none; }
+  .rep-table tr:hover td { background: #fafafa; }
+  .hours-pill { display: inline-block; background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 12px; padding: 3px 10px; border-radius: 20px; }
+  .salary-val { font-weight: 700; color: var(--green-text); font-size: 14px; }
 
-Quyidagi masalalarda yordam bera olaman:
+  /* SETTINGS */
+  .set-row { display: grid; grid-template-columns: 1fr 1.2fr auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+  .set-row:last-child { border-bottom: none; }
+  .set-name { font-size: 14px; font-weight: 600; }
+  .set-filial { font-size: 11px; color: var(--subtext); }
 
-📋 Xodim qabul qilish
-📅 Smena jadvali
-💰 Ish haqi va bonuslar
-📝 Mehnat shartnomasi
-⚖️ Mehnat qonunlari
-🤝 Xodimlar bilan muammolar
+  /* TOAST */
+  #toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: var(--dark); color: #fff; padding: 11px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 9999; white-space: nowrap; }
+  #toast.show { opacity: 1; }
 
-Savolingizni yozing, javob beraman!
+  @media (max-width: 700px) {
+    .page { padding: 12px; }
+    .att-table, .rep-table { font-size: 12px; }
+    .att-table th, .att-table td, .rep-table th, .rep-table td { padding: 7px 6px; }
+    input[type=time].t-input { width: 90px; }
+    .sum-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
 
-/help — yordam
-/clear — suhbatni tozalash"""
-    
-    await update.message.reply_text(welcome_text, parse_mode='Markdown')
+<div class="topbar">
+  <div class="brand">OTTIMO</div>
+  <div class="filial">📍 Parus filiali</div>
+  <div class="date-now" id="top-date"></div>
+</div>
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Yordam"""
-    help_text = """🆘 *Yordam*
+<div class="tabs">
+  <button class="tab-btn active" onclick="showPage('att')">📋 Keldi / Ketdi</button>
+  <button class="tab-btn" onclick="showPage('rep')">📊 Hisobot</button>
+  <button class="tab-btn" onclick="showPage(' oylik')">💰 Oylik</button>
+  <button class="tab-btn" onclick="showPage('set')">⚙️ Sozlamalar</button>
+</div>
 
-Menga istalgan HR savolini yozishingiz mumkin:
+<!-- ===== DAVOMAT ===== -->
+<div id="pg-att" class="page active">
+  <div class="bar">
+    <label>Sana:</label>
+    <input type="date" id="att-date" onchange="renderAtt()">
+    <button class="btn btn-dark" onclick="renderAtt()">🔄 Yangilash</button>
+  </div>
+  <div class="card">
+    <table class="att-table">
+      <thead>
+        <tr>
+          <th>Xodim</th>
+          <th>Filial</th>
+          <th>Keldi</th>
+          <th>Ketdi</th>
+          <th>Ishlagan soat</th>
+          <th>Kunlik maosh</th>
+          <th>Holat</th>
+        </tr>
+      </thead>
+      <tbody id="att-tbody"></tbody>
+    </table>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="saveDay()">💾 Saqlash</button>
+    </div>
+  </div>
+  <div id="save-results"></div>
+</div>
 
-*Misol savollar:*
-• Barista uchun talablar qanday?
-• Yangi xodimni qanday qabul qilamiz?
-• Smena jadvalini qanday tuzish kerak?
-• Probatsiya muddati qancha?
-• Xodim shikoyat qilsa nima qilamiz?
-• Intervyu savollari tayyorlab ber
+<!-- ===== HISOBOT ===== -->
+<div id="pg-rep" class="page">
+  <div class="bar">
+    <label>Oy:</label>
+    <select id="rep-month">
+      <option value="0">Yanvar</option><option value="1">Fevral</option>
+      <option value="2">Mart</option><option value="3">Aprel</option>
+      <option value="4">May</option><option value="5">Iyun</option>
+      <option value="6">Iyul</option><option value="7">Avgust</option>
+      <option value="8">Sentabr</option><option value="9">Oktabr</option>
+      <option value="10">Noyabr</option><option value="11">Dekabr</option>
+    </select>
+    <select id="rep-year"></select>
+    <button class="btn btn-dark" onclick="renderRep()">🔍 Ko'rish</button>
+  </div>
+  <div class="sum-grid" id="sum-grid"></div>
+  <div class="card">
+    <table class="rep-table">
+      <thead>
+        <tr>
+          <th>Xodim</th>
+          <th>Filial</th>
+          <th>Jami ishlagan vaqt</th>
+          <th>Ish kunlari</th>
+          <th>Kunlik stavka (9h)</th>
+          <th>Hisoblangan maosh</th>
+        </tr>
+      </thead>
+      <tbody id="rep-tbody"></tbody>
+    </table>
+  </div>
+</div>
 
-*Buyruqlar:*
-/start — Boshiga qaytish
-/clear — Suhbatni tozalash
-/help — Yordam"""
-    
-    await update.message.reply_text(help_text, parse_mode='Markdown')
+<!-- ===== OYLIK ===== -->
+<div id="pg-oylik" class="page">
+  <div class="bar">
+    <label>Oy:</label>
+    <select id="oy-month">
+      <option value="0">Yanvar</option><option value="1">Fevral</option>
+      <option value="2">Mart</option><option value="3">Aprel</option>
+      <option value="4">May</option><option value="5">Iyun</option>
+      <option value="6">Iyul</option><option value="7">Avgust</option>
+      <option value="8">Sentabr</option><option value="9">Oktabr</option>
+      <option value="10">Noyabr</option><option value="11">Dekabr</option>
+    </select>
+    <select id="oy-year"></select>
+    <button class="btn btn-dark" onclick="renderOylik()">🔍 Ko'rish</button>
+  </div>
+  <div class="card">
+    <div class="card-title">Xodimlar oylik maosh jadvali</div>
+    <table class="rep-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Ism</th>
+          <th>Filial</th>
+          <th>Oylik stavka</th>
+          <th>Ishlagan soat</th>
+          <th>Jami maosh</th>
+        </tr>
+      </thead>
+      <tbody id="oy-tbody"></tbody>
+    </table>
+  </div>
+</div>
 
-async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Suhbat tarixini tozalash"""
-    user_id = update.effective_user.id
-    user_sessions[user_id] = []
-    await update.message.reply_text("✅ Suhbat tozalandi. Yangi savol bering!")
+<!-- ===== SOZLAMALAR ===== -->
+<div id="pg-set" class="page">
+  <div class="card">
+    <div class="card-title">Xodimlar ro'yxati — Parus filiali</div>
+    <div id="set-list"></div>
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+      <div class="card-title">➕ Yangi xodim qo'shish</div>
+      <div style="display:grid; grid-template-columns:1fr 1.2fr auto; gap:10px; align-items:center;">
+        <input type="text" id="new-name" placeholder="Ism familiya">
+        <input type="number" id="new-sal" placeholder="Oylik maosh (so'm)" min="0">
+        <button class="btn btn-dark" onclick="addEmp()">Qo'shish</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Xabarlarni qayta ishlash"""
-    user_id = update.effective_user.id
-    user_text = update.message.text
+<div id="toast"></div>
 
-    # Typing ko'rsatish
-    await context.bot.send_chat_action(
-        chat_id=update.effective_chat.id,
-        action="typing"
-    )
+<script>
+// ===== DATA =====
+let emps = [
+  {id:1, name:'Ilhom',         filial:'Parus', salary:180000},
+  {id:2, name:'Ibrohim',       filial:'Parus', salary:200000},
+  {id:3, name:'Zohida',        filial:'Parus', salary:180000},
+  {id:4, name:'Komila',        filial:'Parus', salary:100000},
+  {id:5, name:'Muhammad Amin', filial:'Parus', salary:200000}
+];
+let att = {}; // key: "YYYY-MM-DD_empId" => {k, t}
 
-    # Suhbat tarixini olish yoki yangi yaratish
-    if user_id not in user_sessions:
-        user_sessions[user_id] = []
+// ===== UTILS =====
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function getMins(t1, t2) {
+  if (!t1 || !t2) return 0;
+  const [h1,m1] = t1.split(':').map(Number);
+  const [h2,m2] = t2.split(':').map(Number);
+  const d = (h2*60+m2)-(h1*60+m1);
+  return d > 0 ? d : 0;
+}
+function fmtHours(mins) {
+  if (!mins || mins <= 0) return null;
+  const h = Math.floor(mins/60), m = mins%60;
+  return m > 0 ? h+' soat '+m+' daq' : h+' soat';
+}
+function fmtHoursShort(mins) {
+  if (!mins || mins <= 0) return '0h';
+  const h = Math.floor(mins/60), m = mins%60;
+  return m > 0 ? h+'h '+m+'m' : h+'h';
+}
+function fmtMoney(n) {
+  if (!n || n <= 0) return '—';
+  return Math.round(n).toLocaleString('uz-UZ')+' so\'m';
+}
+function calcEarned(emp, mins) {
+  if (!mins || mins <= 0) return 0;
+  // Kunlik 9 soat = to'liq oylik stavka. Kam ishlasa: (soat/9) × oylik
+  return Math.round((mins / 60) / 9 * emp.salary);
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
 
-    try:
-        # Gemini ga yuborish
-        chat_history = user_sessions[user_id]
-        
-        # To'liq prompt
-        full_prompt = f"{SYSTEM_PROMPT}\n\nFoydalanuvchi: {user_text}"
-        
-        if chat_history:
-            # Oldingi suhbatni qo'shish
-            history_text = "\n".join([
-                f"Foydalanuvchi: {h['user']}\nAgent: {h['agent']}"
-                for h in chat_history[-5:]  # Oxirgi 5 ta
-            ])
-            full_prompt = f"{SYSTEM_PROMPT}\n\nOldingi suhbat:\n{history_text}\n\nFoydalanuvchi: {user_text}"
+// ===== TOP DATE =====
+function setTopDate() {
+  const now = new Date();
+  document.getElementById('top-date').textContent =
+    now.toLocaleDateString('uz-UZ', {weekday:'short', year:'numeric', month:'long', day:'numeric'});
+}
 
-        response = model.generate_content(full_prompt)
-        reply = response.text
+// ===== YEAR SELECTS =====
+function fillYears(...ids) {
+  const now = new Date().getFullYear();
+  ids.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.innerHTML = '';
+    for (let y=2024; y<=2026; y++) {
+      const o = document.createElement('option');
+      o.value=y; o.textContent=y;
+      if (y===now) o.selected=true;
+      sel.appendChild(o);
+    }
+  });
+}
 
-        # Tarixga qo'shish
-        user_sessions[user_id].append({
-            "user": user_text,
-            "agent": reply
-        })
+// ===== DAVOMAT =====
+function renderAtt() {
+  const date = document.getElementById('att-date').value;
+  document.getElementById('save-results').innerHTML = '';
+  const tbody = document.getElementById('att-tbody');
+  tbody.innerHTML = emps.map(emp => {
+    const key = date+'_'+emp.id;
+    const rec = att[key] || {k:'', t:''};
+    const mins = getMins(rec.k, rec.t);
+    const earned = calcEarned(emp, mins);
+    const resHtml = mins > 0
+      ? `<div class="res-box"><div class="res-hours">${fmtHours(mins)}</div><div class="res-salary">${fmtMoney(earned)}</div></div>`
+      : `<span class="res-empty">Vaqt kiritilmagan</span>`;
+    const badge = mins > 0
+      ? `<span class="badge badge-on">✓ Keldi</span>`
+      : `<span class="badge badge-off">Kelmadi</span>`;
+    return `<tr>
+      <td><div class="emp-name-cell">${emp.name}</div></td>
+      <td><div class="emp-filial-cell">${emp.filial}</div></td>
+      <td><input type="time" class="t-input" id="k-${emp.id}" value="${rec.k}" onchange="liveUpdate(${emp.id})"></td>
+      <td><input type="time" class="t-input" id="t-${emp.id}" value="${rec.t}" onchange="liveUpdate(${emp.id})"></td>
+      <td id="res-${emp.id}">${resHtml}</td>
+      <td style="font-weight:600;color:#0a7a45">${mins>0 ? fmtMoney(earned) : '—'}</td>
+      <td id="badge-${emp.id}">${badge}</td>
+    </tr>`;
+  }).join('');
+}
 
-        # Javob yuborish
-        await update.message.reply_text(reply)
+function liveUpdate(empId) {
+  const k = document.getElementById('k-'+empId).value;
+  const t = document.getElementById('t-'+empId).value;
+  const date = document.getElementById('att-date').value;
+  att[date+'_'+empId] = {k, t};
+  const emp = emps.find(e=>e.id===empId);
+  const mins = getMins(k, t);
+  const earned = calcEarned(emp, mins);
 
-    except Exception as e:
-        logger.error(f"Xato: {e}")
-        await update.message.reply_text(
-            "⚠️ Xatolik yuz berdi. Qaytadan urinib ko'ring yoki /clear buyrug'ini ishlating."
-        )
+  document.getElementById('res-'+empId).innerHTML = mins > 0
+    ? `<div class="res-box"><div class="res-hours">${fmtHours(mins)}</div><div class="res-salary">${fmtMoney(earned)}</div></div>`
+    : `<span class="res-empty">Vaqt kiritilmagan</span>`;
 
-def main():
-    """Botni ishga tushirish"""
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+  // update salary cell (4th td after res cell)
+  const row = document.getElementById('k-'+empId).closest('tr');
+  row.cells[5].textContent = mins>0 ? fmtMoney(earned) : '—';
+  row.cells[5].style.color = '#0a7a45';
+  row.cells[5].style.fontWeight = '600';
 
-    # Handlerlar
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("clear", clear_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+  document.getElementById('badge-'+empId).innerHTML = mins > 0
+    ? `<span class="badge badge-on">✓ Keldi</span>`
+    : `<span class="badge badge-off">Kelmadi</span>`;
+}
 
-    logger.info("Bot ishga tushdi!")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+function saveDay() {
+  const date = document.getElementById('att-date').value;
+  // collect current inputs
+  emps.forEach(emp => {
+    const k = document.getElementById('k-'+emp.id)?.value || '';
+    const t = document.getElementById('t-'+emp.id)?.value || '';
+    att[date+'_'+emp.id] = {k, t};
+  });
 
-if __name__ == "__main__":
-    main()
+  const rows = emps.map(emp => {
+    const rec = att[date+'_'+emp.id] || {k:'',t:''};
+    const mins = getMins(rec.k, rec.t);
+    const earned = calcEarned(emp, mins);
+    return {emp, rec, mins, earned};
+  }).filter(r => r.rec.k || r.rec.t);
+
+  if (rows.length === 0) { showToast('⚠️ Hech qanday vaqt kiritilmagan'); return; }
+
+  const totalMins = rows.reduce((a,b)=>a+b.mins,0);
+  const totalEarned = rows.reduce((a,b)=>a+b.earned,0);
+
+  let html = `<div class="card">
+    <div class="card-title">📅 ${date} — Saqlangan natijalar</div>
+    <table class="result-table">
+      <thead><tr>
+        <th>Ism</th><th>Filial</th><th>Keldi</th><th>Ketdi</th>
+        <th>Ishlagan soat</th><th>Kunlik maosh</th><th>Holat</th>
+      </tr></thead><tbody>`;
+  rows.forEach(r => {
+    const valid = r.mins > 0;
+    html += `<tr>
+      <td style="font-weight:600">${r.emp.name}</td>
+      <td>${r.emp.filial}</td>
+      <td style="font-weight:500;color:#1a1a2e">${r.rec.k || '—'}</td>
+      <td style="font-weight:500;color:#1a1a2e">${r.rec.t || '—'}</td>
+      <td>${valid ? '<span class="hours-pill">'+fmtHoursShort(r.mins)+'</span>' : '—'}</td>
+      <td class="money-green">${valid ? fmtMoney(r.earned) : '—'}</td>
+      <td>${valid ? '<span class="badge badge-on">✓ Keldi</span>' : '<span class="badge badge-off">Kelmadi</span>'}</td>
+    </tr>`;
+  });
+  html += `<tr>
+    <td colspan="4" style="font-weight:700;text-align:right">JAMI:</td>
+    <td><span class="hours-pill">${fmtHoursShort(totalMins)}</span></td>
+    <td class="money-green">${fmtMoney(totalEarned)}</td>
+    <td></td>
+  </tr></tbody></table></div>`;
+
+  document.getElementById('save-results').innerHTML = html;
+  showToast('✅ Saqlandi!');
+}
+
+// ===== HISOBOT =====
+function renderRep() {
+  const month = parseInt(document.getElementById('rep-month').value);
+  const year = parseInt(document.getElementById('rep-year').value);
+
+  const data = emps.map(emp => {
+    let totalMins=0, days=0;
+    Object.keys(att).forEach(key => {
+      const [ds, eid] = key.split('_');
+      if (parseInt(eid)!==emp.id) return;
+      const d = new Date(ds);
+      if (d.getMonth()===month && d.getFullYear()===year) {
+        const m = getMins(att[key].k, att[key].t);
+        if (m>0){totalMins+=m; days++;}
+      }
+    });
+    const earned = calcEarned(emp, totalMins);
+    const rate = emp.salary; // 9 soat = kunlik stavka
+    return {...emp, totalMins, days, earned, rate};
+  });
+
+  const totMins = data.reduce((a,b)=>a+b.totalMins,0);
+  const totEarned = data.reduce((a,b)=>a+b.earned,0);
+  const active = data.filter(e=>e.days>0).length;
+
+  document.getElementById('sum-grid').innerHTML = `
+    <div class="s-card"><div class="lbl">Xodimlar</div><div class="val">${emps.length}</div></div>
+    <div class="s-card"><div class="lbl">Faol xodim</div><div class="val">${active}</div></div>
+    <div class="s-card"><div class="lbl">Jami vaqt</div><div class="val small">${fmtHours(totMins)||'—'}</div></div>
+    <div class="s-card"><div class="lbl">Jami maosh</div><div class="val small">${Math.round(totEarned).toLocaleString()} so'm</div></div>`;
+
+  document.getElementById('rep-tbody').innerHTML = data.map((e,i) => `
+    <tr>
+      <td style="font-weight:600">${e.name}</td>
+      <td>${e.filial}</td>
+      <td>${e.totalMins>0 ? '<span class="hours-pill">'+fmtHoursShort(e.totalMins)+'</span>' : '—'}</td>
+      <td>${e.days} kun</td>
+      <td>${e.rate.toLocaleString()} so'm/kun</td>
+      <td class="salary-val">${e.earned>0 ? fmtMoney(e.earned) : '—'}</td>
+    </tr>`).join('');
+}
+
+// ===== OYLIK =====
+function renderOylik() {
+  const month = parseInt(document.getElementById('oy-month').value);
+  const year = parseInt(document.getElementById('oy-year').value);
+
+  const data = emps.map((emp,i) => {
+    let totalMins=0;
+    Object.keys(att).forEach(key => {
+      const [ds, eid] = key.split('_');
+      if (parseInt(eid)!==emp.id) return;
+      const d = new Date(ds);
+      if (d.getMonth()===month && d.getFullYear()===year) {
+        const m = getMins(att[key].k, att[key].t);
+        if (m>0) totalMins+=m;
+      }
+    });
+    const earned = calcEarned(emp, totalMins);
+    return {...emp, totalMins, earned, num:i+1};
+  });
+
+  const totEarned = data.reduce((a,b)=>a+b.earned,0);
+
+  document.getElementById('oy-tbody').innerHTML = [
+    ...data.map(e => `<tr>
+      <td>${e.num}</td>
+      <td style="font-weight:600">${e.name}</td>
+      <td>${e.filial}</td>
+      <td>${e.salary.toLocaleString()} so'm</td>
+      <td>${e.totalMins>0 ? fmtHoursShort(e.totalMins) : '—'}</td>
+      <td class="salary-val">${e.earned>0 ? fmtMoney(e.earned) : '—'}</td>
+    </tr>`),
+    `<tr style="background:#f0fdf7;font-weight:700">
+      <td colspan="5" style="text-align:right;font-size:14px">JAMI OYLIK MAOSH:</td>
+      <td class="salary-val" style="font-size:15px">${fmtMoney(totEarned)}</td>
+    </tr>`
+  ].join('');
+}
+
+// ===== SOZLAMALAR =====
+function renderSet() {
+  document.getElementById('set-list').innerHTML = emps.map(emp => `
+    <div class="set-row">
+      <div>
+        <div class="set-name">${emp.name}</div>
+        <div class="set-filial">${emp.filial} filiali</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" value="${emp.salary}" style="width:160px" onchange="updSal(${emp.id},this.value)" placeholder="Oylik so'm">
+        <span style="font-size:11px;color:var(--subtext)">so'm/oy</span>
+      </div>
+      <button class="btn btn-red" onclick="delEmp(${emp.id})">🗑 O'chirish</button>
+    </div>`).join('');
+}
+function updSal(id, v) {
+  const e = emps.find(x=>x.id===id);
+  if (e) e.salary = parseInt(v)||0;
+  showToast('✅ Maosh yangilandi');
+}
+function delEmp(id) {
+  if (!confirm('Rostdan o\'chirmoqchimisiz?')) return;
+  emps = emps.filter(e=>e.id!==id);
+  renderSet(); showToast('O\'chirildi');
+}
+function addEmp() {
+  const n = document.getElementById('new-name').value.trim();
+  const s = parseInt(document.getElementById('new-sal').value)||0;
+  if (!n) { showToast('⚠️ Ism kiriting'); return; }
+  emps.push({id:Date.now(), name:n, filial:'Parus', salary:s});
+  document.getElementById('new-name').value='';
+  document.getElementById('new-sal').value='';
+  renderSet(); showToast('✅ Qo\'shildi: '+n);
+}
+
+// ===== TAB =====
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', ['att','rep','oylik','set'][i]===name);
+  });
+  document.getElementById('pg-'+name).classList.add('active');
+  if (name==='rep') renderRep();
+  if (name==='oylik') renderOylik();
+  if (name==='set') renderSet();
+}
+
+// ===== INIT =====
+setTopDate();
+document.getElementById('att-date').value = todayStr();
+fillYears('rep-year','oy-year');
+document.getElementById('rep-month').value = new Date().getMonth();
+document.getElementById('oy-month').value = new Date().getMonth();
+renderAtt();
+</script>
+</body>
+</html>
