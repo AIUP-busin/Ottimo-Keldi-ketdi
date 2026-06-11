@@ -3,37 +3,57 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ottimo Davomat Tizimi</title>
+<title>Ottimo Davomat</title>
 
 <style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,sans-serif;
+}
+
 body{
-    font-family: Arial, sans-serif;
-    background:#f5f5f5;
+    background:#f5f7fb;
     padding:20px;
 }
+
 h1{
     text-align:center;
+    margin-bottom:20px;
 }
+
 table{
     width:100%;
     border-collapse:collapse;
     background:#fff;
 }
+
 th,td{
     border:1px solid #ddd;
     padding:8px;
     text-align:center;
 }
+
 th{
     background:#0d6efd;
-    color:white;
+    color:#fff;
 }
-input{
-    width:90px;
+
+input[type="time"]{
+    padding:5px;
 }
-tfoot{
+
+.summary{
+    margin-top:20px;
+    background:#fff;
+    padding:15px;
+    border-radius:10px;
+}
+
+.employee-total{
+    margin-bottom:10px;
     font-weight:bold;
-    background:#f0f0f0;
 }
 </style>
 </head>
@@ -41,7 +61,7 @@ tfoot{
 
 <h1>OTTIMO DAVOMAT TIZIMI</h1>
 
-<table id="table">
+<table>
 <thead>
 <tr>
 <th>Ism</th>
@@ -49,114 +69,190 @@ tfoot{
 <th>Sana</th>
 <th>Keldi</th>
 <th>Ketdi</th>
-<th>Ishlagan Soat</th>
+<th>Soat</th>
 <th>Kunlik Stavka</th>
 <th>Hisoblangan Maosh</th>
 </tr>
 </thead>
 
-<tbody>
-
-<tr>
-<td>Ilhom</td>
-<td>Parus</td>
-<td><input type="date"></td>
-<td><input type="time" class="in"></td>
-<td><input type="time" class="out"></td>
-<td class="hours">0</td>
-<td class="rate">180000</td>
-<td class="salary">0</td>
-</tr>
-
-<tr>
-<td>Ibrohim</td>
-<td>Parus</td>
-<td><input type="date"></td>
-<td><input type="time" class="in"></td>
-<td><input type="time" class="out"></td>
-<td class="hours">0</td>
-<td class="rate">200000</td>
-<td class="salary">0</td>
-</tr>
-
-<tr>
-<td>Zohida</td>
-<td>Parus</td>
-<td><input type="date"></td>
-<td><input type="time" class="in"></td>
-<td><input type="time" class="out"></td>
-<td class="hours">0</td>
-<td class="rate">180000</td>
-<td class="salary">0</td>
-</tr>
-
-<tr>
-<td>Komila</td>
-<td>Parus</td>
-<td><input type="date"></td>
-<td><input type="time" class="in"></td>
-<td><input type="time" class="out"></td>
-<td class="hours">0</td>
-<td class="rate">100000</td>
-<td class="salary">0</td>
-</tr>
-
-<tr>
-<td>Muhammad Amin</td>
-<td>Parus</td>
-<td><input type="date"></td>
-<td><input type="time" class="in"></td>
-<td><input type="time" class="out"></td>
-<td class="hours">0</td>
-<td class="rate">200000</td>
-<td class="salary">0</td>
-</tr>
-
-</tbody>
-
-<tfoot>
-<tr>
-<td colspan="7">JAMI OYLIK</td>
-<td id="total">0</td>
-</tr>
-</tfoot>
+<tbody id="tableBody"></tbody>
 
 </table>
 
+<div class="summary">
+<h3>Jami Hisobot</h3>
+
+<div id="employeeTotals"></div>
+
+<h2>
+Umumiy Jami:
+<span id="grandTotal">0</span> so'm
+</h2>
+
+</div>
+
 <script>
 
-function calculate(){
+const employees = [
+{
+name:"Ilhom",
+branch:"Parus",
+salary:180000
+},
+{
+name:"Ibrohim",
+branch:"Parus",
+salary:200000
+},
+{
+name:"Zohida",
+branch:"Parus",
+salary:180000
+},
+{
+name:"Komila",
+branch:"Parus",
+salary:100000
+},
+{
+name:"Muhammad Amin",
+branch:"Parus",
+salary:200000
+}
+];
 
-let total = 0;
+const startDate = new Date("2026-06-12");
+const endDate = new Date("2026-06-22");
 
-document.querySelectorAll("tbody tr").forEach(row=>{
+const tableBody = document.getElementById("tableBody");
 
-const inTime = row.querySelector(".in").value;
-const outTime = row.querySelector(".out").value;
-const rate = Number(row.querySelector(".rate").innerText);
+function formatDate(date){
 
-if(inTime && outTime){
+let day = String(date.getDate()).padStart(2,'0');
+let month = String(date.getMonth()+1).padStart(2,'0');
+let year = date.getFullYear();
 
-const start = new Date("2025-01-01T"+inTime);
-const end = new Date("2025-01-01T"+outTime);
+return `${day}.${month}.${year}`;
+}
 
-const hours = (end-start)/(1000*60*60);
+employees.forEach(emp=>{
 
-const salary = (rate/9)*hours;
+let current = new Date(startDate);
 
-row.querySelector(".hours").innerText =
-hours.toFixed(2);
+while(current <= endDate){
 
-row.querySelector(".salary").innerText =
-Math.round(salary).toLocaleString();
+let row = document.createElement("tr");
 
-total += salary;
+row.innerHTML = `
+<td>${emp.name}</td>
+<td>${emp.branch}</td>
+<td>${formatDate(current)}</td>
+
+<td>
+<input type="time" class="in">
+</td>
+
+<td>
+<input type="time" class="out">
+</td>
+
+<td class="hours">0</td>
+
+<td class="salaryRate">
+${emp.salary}
+</td>
+
+<td class="salaryResult">0</td>
+`;
+
+tableBody.appendChild(row);
+
+current.setDate(current.getDate()+1);
+
 }
 
 });
 
-document.getElementById("total").innerText =
-Math.round(total).toLocaleString();
+function calculate(){
+
+let grandTotal = 0;
+
+let employeeTotals = {};
+
+document.querySelectorAll("tbody tr").forEach(row=>{
+
+const employee =
+row.children[0].innerText;
+
+const rate =
+parseInt(
+row.querySelector(".salaryRate").innerText
+);
+
+const inTime =
+row.querySelector(".in").value;
+
+const outTime =
+row.querySelector(".out").value;
+
+let salary = 0;
+
+if(inTime && outTime){
+
+const start =
+new Date(`2026-01-01T${inTime}`);
+
+const end =
+new Date(`2026-01-01T${outTime}`);
+
+const hours =
+(end-start)/(1000*60*60);
+
+salary =
+(rate/9)*hours;
+
+row.querySelector(".hours").innerText =
+hours.toFixed(2);
+
+row.querySelector(".salaryResult").innerText =
+Math.round(salary).toLocaleString();
+
+}else{
+
+row.querySelector(".hours").innerText = "0";
+row.querySelector(".salaryResult").innerText = "0";
+
+}
+
+grandTotal += salary;
+
+if(!employeeTotals[employee]){
+employeeTotals[employee]=0;
+}
+
+employeeTotals[employee]+=salary;
+
+});
+
+document.getElementById("grandTotal")
+.innerText =
+Math.round(grandTotal).toLocaleString();
+
+let html = "";
+
+for(let emp in employeeTotals){
+
+html += `
+<div class="employee-total">
+${emp} :
+${Math.round(employeeTotals[emp]).toLocaleString()} so'm
+</div>
+`;
+
+}
+
+document.getElementById("employeeTotals")
+.innerHTML = html;
 
 }
 
